@@ -9,8 +9,8 @@ select
 ME.LoanId,
 
 Case
-	when MM.LoanFolder='Active Modification' then 'Active Mod'
-	else LS.LoanSubStatusDesc
+when MM.LoanFolder='Active Modification' then 'Active Mod'
+else LS.LoanSubStatusDesc
 end as CurrentLoanStatus,
 
 
@@ -25,23 +25,23 @@ END AS 'Investor Name',
 ME.InvestorId as 'Investor',
 
 case
-	when MM.LoanFolder='Active Modification' then MM.CurrentMilestone 
-	else 'NULL'
+when MM.LoanFolder='Active Modification' then MM.CurrentMilestone 
+else 'NULL'
 end as 'Modification Current Milestone',
 
 LS.LoanSubStatusDesc as 'Delinquency Status',
 
 case 
-	when MM.LoanFolder='Active Modification' and MM.Verify3rdTrialPaymentReceivedDt>'1/1/2018' then '3'
-	when MM.LoanFolder='Active Modification' and MM.Verify2ndTrialPaymentReceivedDt>'1/1/2018' then '2'
-	when MM.LoanFolder='Active Modification' and MM.VerifyFirstTrialPaymentReceivedDt>'1/1/2018' then '1'
-	when MM.LoanFolder='Active Modification' and MM.CurrentMilestone in ('Trial Payment Tracking') then '0'
-	ELSE 'NULL'
+when MM.LoanFolder='Active Modification' and MM.Verify3rdTrialPaymentReceivedDt>'1/1/2018' then '3'
+when MM.LoanFolder='Active Modification' and MM.Verify2ndTrialPaymentReceivedDt>'1/1/2018' then '2'
+when MM.LoanFolder='Active Modification' and MM.VerifyFirstTrialPaymentReceivedDt>'1/1/2018' then '1'
+when MM.LoanFolder='Active Modification' and MM.CurrentMilestone in ('Trial Payment Tracking') then '0'
+ELSE 'NULL'
 end as 'TrialPaymentsMade',
 
 CASE
 	WHEN LS.LoanSubStatusDesc in('3rd Party Foreclosure Sale','Paid Off In Full','Short Sale','Foreclosure Sale','Deed in Lieu') THEN 'FC Sale/SS/DIL/PIF'
-	WHEN LS.LoanSubStatusDesc in('Liquidation Post Deed In Lieu Activity','Liquidation Post Foreclosure Sale Activity','Liquidation Post REO Sale Activity','Liquidation Post Short Sale Activity','Liquidation Post Unknown Sale Activity') THEN 'Liquidation'
+	WHEN LS.LoanSubStatusDesc in('Liquidation Post Deed In Lieu Activity','Liquidation Post Foreclosure Sale Activity','Liquidation Post REO Sale Activity','Liquidation Post Short Sale Activity','Liquidation Post Unknown Sale Activity', 'Liquidation Unknown') THEN 'Liquidation'
 	WHEN LS.LoanSubStatusDesc in('Current', 'Active Mod') THEN LS.LoanSubStatusDesc
 	WHEN LS.LoanSubStatusDesc in('Foreclosure Active','Foreclosure In Redemption','Foreclosure On Hold - Bankruptcy','Foreclosure On Hold - Other') THEN 'FC'
 	WHEN LS.LoanSubStatusDesc in('REO', 'REO Sale') THEN 'REO'
@@ -52,10 +52,11 @@ END AS 'DLQ Status-Short',
 
 CASE
 	WHEN LS.LoanSubStatusDesc in('30 Days Delinquent','60 Days Delinquent','90 Days Delinquent','120+ Days Delinquent','Active Mod','Foreclosure Active','Foreclosure In Redemption','Foreclosure On Hold - Bankruptcy','Foreclosure On Hold - Other') THEN 'In Portfolio'
-	WHEN LS.LoanSubStatusDesc in('3rd Party Foreclosure Sale','Paid Off In Full','Short Sale','Foreclosure Sale','Deed in Lieu') THEN 'Out of Portfolio'
+	WHEN LS.LoanSubStatusDesc in('3rd Party Foreclosure Sale','Paid Off In Full','Short Sale','Foreclosure Sale','Deed in Lieu','Liquidation Unknown') THEN 'Out of Portfolio'
 	WHEN LS.LoanSubStatusDesc in('Current','Liquidation Post Deed In Lieu Activity','Liquidation Post Foreclosure Sale Activity','Liquidation Post REO Sale Activity','Liquidation Post Short Sale Activity','Liquidation Post Unknown Sale Activity','REO', 'REO Sale') THEN 'In-Pending Out of Portfolio'
-	ELSE 'UNKNOWN NB Position - ' + LS.LoanSubStatusDesc
-END AS 'NB Position Status',
+	ELSE 'UNKNOWN Investor Position - ' + LS.LoanSubStatusDesc
+END AS 'Investor Position Status',
+LS.LoanSubStatusDesc as 'SubStatus',
 (SELECT LEFT(convert(varchar, @MEPeriod, 112),6)) as MEPeriod_forReport
 
 
