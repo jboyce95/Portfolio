@@ -8,16 +8,20 @@ NOTES ON GOAL OF SCRIPT:
     + create ebo investor tape to send to investors
     
 USER REQUIREMENTS:
-    + User must update loan number list in the 1) ebo investor tape query
-    + Presently, this python script references the actual SQL query. Future refactoring, which aims to pull in loan number lists
-        located on internal folders, will shift to passing the text string inside of the SQL script in order to automatically 
-        insert the loan number list into script
+    + Useres now save an EBO_LoanList.xls file to a user-defined folder. Hard text of the EBO Investor Tape SQL Query is pasted below
+    + OLD REQUIREMENT - USERS NOW SAVE EBO_LoanList.xls file TO USER-DEFINED FOLDER -  User must update loan number list in the 1) ebo investor tape query
+        + Presently, this python script references the actual SQL query. Future refactoring, which aims to pull in loan number lists
+            located on internal folders, will shift to passing the text string inside of the SQL script in order to automatically 
+            insert the loan number list into script
     + Future refactoring can include the following:
         ++ Import loan numbers for population (rather than updating SQL scripts)
         ++ Create Summary statistics report based on the loan population
     
     
 REVISION HISTORY:
+    20200121:
+         + Revised section of code that references the EBO Investor Tape SQL script. This python script will now pull loan numbers 
+             from a loan list located in a shared drive location defined by the user
     2020XXXX:
         + Discovered issue with df_final and df_trendix_out not merging properly
 """
@@ -68,7 +72,7 @@ def make_tape():
         sql_conn.close()
         
         #------------------------------------------------------------------------------------------------------------
-        #Export the query results to the Trendix In folder
+        #Export the query results to the preferred file folder
         df.to_excel(df_export_fileandpath) #,index=False
         
         #print some statistics to console for user color
