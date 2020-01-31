@@ -47,8 +47,11 @@ sql_conn = pyodbc.connect('DRIVER={SQL Server};SERVER={w08-vm-sql-3};DATABASE=po
 #############################################
 
 #Set path, filename for export to folder
+#------------------------------------------------------------------------------------------------------------
 ebo_eligibility_export_path = r'M:\Capital Markets\GNMA EBO Project\Python'
 ebo_eligibility_export_filename = '\ebo_eligibility.xlsx' 
+
+#define filename that includes timestap (for archiving)
 ebo_eligibility_export_filename_withTimeStamp = '\ebo_eligibility_' + time_string +  '.xlsx' 
 ebo_eligibility_export_fileandpath = ebo_eligibility_export_path + ebo_eligibility_export_filename
 ebo_eligibility_export_filename_loannums = '\ebo_eligibility_list.csv' 
@@ -90,12 +93,13 @@ elapsed_time = time.process_time() - t
 print("Runtime was: ", elapsed_time, " seconds\n") #add seconds formatting on to-do list
 print('DF Eligible (head):\n\n', df_eligible.head())
 
-#print some statistics do console for user color
+#print some statistics to console for user color
 print('\n')
 print('Eligible 60+ Count (rows):',df.shape[0])
-print('Eligible not kicked count (rows):',df_eligible.shape[0])
+print('Eligible 60+ Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
+print('Eligible not kicked count (rows):', df_eligible.shape[0])
+print('Eligible not kicked Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm')
 print('Eligible population exported to: \n',ebo_eligibility_export_fileandpath, '\n', 'and\n', ebo_eligibility_export_fileandpath_withTimeStamp)
-
 
 
 #MAYBE ADD TO STEP THAT ADDS THE TRENDIX CSV TO THE FINAL OUTPUT
