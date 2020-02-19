@@ -333,7 +333,7 @@ print ('Test set (indices): ', indices_test)
 # 
 
 # #### Modeling
-from sklearn.tree import DecisionTreeClassifier
+#from sklearn.tree import DecisionTreeClassifier
 
 #print(dTree) # it shows the default parameters
 
@@ -398,12 +398,12 @@ dtree_max_depth_iterator()
 
 
 #############################################
-#RUN DECISION TREE USING 
+#RUN DECISION TREE USING SKLEARN
 #############################################
 from sklearn.tree import DecisionTreeClassifier
 from sklearn import metrics
 import matplotlib.pyplot as plt
-import operator
+#import operator
 from sklearn.metrics import classification_report, confusion_matrix
 
 #Decision Tree with max_depth =4
@@ -449,20 +449,26 @@ df_DT12 = pd.DataFrame(
       index=indices_test,
       columns=target_probabilities_column_names)
 
+#set target column = to 
+#ADDED THIS FOR EXPORT
+df_DT4['Target_y'] = df_target['Target_y']
+df_DT4['Predicted_y'] = predTree4
 
+df_DT12['Target_y'] = df_target['Target_y']
+df_DT12['Predicted_y'] = predTree12
 
 print("\nDecision Tree Head (max_depth = 4): \n{}".format(df_DT4.head()))
 print("\nDecision Tree Head (max_depth = 12): \n{}".format(df_DT12.head()))
-
-#COPIED FILE AND PATH SETTING FOR REFERENCE
-# filepath_export = r'M:\Capital Markets\Users\Johnathan Boyce\Misc\Programming\Python\EBO ML-AI-Probability Project\FAV (Gang) Data'
-# filename_export_decision_tree = '\decision-tree_probabilities' #'.xlsx' need to add xls
-# pathandfile_export_decision_tree = filepath_export + filename_export_decision_tree
 
 
 #export dataframe results to excel
 df_DT4.to_excel(filepath_export + filename_export_decision_tree + "4.xlsx")
 df_DT12.to_excel(filepath_export + filename_export_decision_tree + "12.xlsx")
+
+
+#TEMP PRINT OF PREDTREE4
+print(predTree4[:5])
+print(predTree12[:5])
 
 #dTree = DecisionTreeClassifier(criterion="entropy", max_depth = 4)
 #dTree.fit(X_train,y_train)
