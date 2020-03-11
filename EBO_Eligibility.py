@@ -16,6 +16,8 @@ USER REQUIREMENTS:
     
     
 REVISION HISTORY:
+    20200311:
+        + PENDING - Adding placeholder kick columns for pre-dd phase of marketing process
     20200123:
         + Added to the dataframe the tracking of dd kicks, port strat kicks, pricing kicks from loan lists
             housed in the network drive
@@ -56,8 +58,14 @@ ebo_eligibility_export_path = r'M:\Capital Markets\GNMA EBO Project\Python'
 ebo_eligibility_export_filename = '\ebo_eligibility.xlsx' 
 #------------------------------------------------------------------------------------------------------------
 
+"""
+#??????????????????????????????????????????????????????????????????????????????????????
+#TEMPORARY COMMENTING OUT FOR KICK LISTS AND ALLOCATION LISTS
+#WORKING TO ADD SCRIPT THAT TRIES TO PULL FILES BUT GIVES EXCEPTION ERRORS IF DOESN'T EXIST OR FILES ARE EMPTY
+#
+
 #############################################
-#IMPORTS - Set path, filename for importing Pricing Kick List
+#IMPORTS (KICK LISTS AND ALLOCATIONS) - Set path, filename for importing Pricing Kick List
 #   then import into df
 #############################################
 #Port Strat
@@ -88,6 +96,8 @@ dd_kicklist_import_filename = '\DD_Kicks_20200302_settle.csv'
 dd_kicklist_import_pathandfile = dd_kicklist_import_path + dd_kicklist_import_filename
 df_DD_kicks = pd.read_csv(dd_kicklist_import_pathandfile).set_index('LoanId')
 #------------------------------------------------------------------------------------------------------------
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""
 
 
 #define filename that includes timestap (for archiving)
@@ -110,32 +120,32 @@ query = open(sql_fileandpath)
 df = pd.read_sql_query(query.read(),sql_conn).set_index('LoanId')
 sql_conn.close()
 
+"""
+#??????????????????????????????????????????????????????????????????????????????????????
 #############################################
 #ADD PRICING, ALLOCATION, PORT STRAT, AND DD COLUMNS TO DF
 #############################################
-#merge dataframes of kick and allocation lists
-df = pd.merge(df, df_PS_kicks, how='left', suffixes=('','_PS'), left_index=True, right_index=True) #, suffixes=('','_PS')
+#merge dataframes of kick lists and allocation lists
+df = pd.merge(df, df_PS_kicks, how='left', suffixes=('','_PS'), left_index=True, right_index=True)
 df = pd.merge(df, df_pricing_kicks, how='left', suffixes=('','_pricing_kicks'), left_index=True, right_index=True)
 df = pd.merge(df, df_DD_kicks, how='left', suffixes=('','_dd_kicks'), left_index=True, right_index=True)
 df = pd.merge(df, df_allocation, how='left', suffixes=('','_Allocation'), left_index=True, right_index=True)
 
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""
+
 
 #------------------------------------------------------------------------------------------------------------
-#Export the Trendix csv template to the Trendix In folder
-#STILL NEED TO ADD REMOVALS OF LOANNUMBERS THAT ARE NOT ELIGIBLE
-#DONE - STILL NEED TO ADD DATESTAMP TO EXPORT LIST
-#DONE - ADD KICK CATEGORIES TO DF (PS, PRICING, )
-#DONE - ADD ALLOCATION COLUMN
-#MAYBE USE PYTHON TO CREATE BACKUP OF KICK AND ALLOCATION FILES
+#Export list of eligible loans after filtering out Port Strat kicks, due diligence kicks, and pricing kicks
+#------------------------------------------------------------------------------------------------------------
 
+#BELOW VERSION IS WHEN THERE ARE KICK FLAGS DEFINED
+#df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.Flag.isnull()) & (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ][['CurrentPrincipalBalanceAmt','EligibilityScrub','Flag','Flag_pricing_kicks','Flag_dd_kicks','Flag_Allocation']]
 
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#BELOW VERSION IS WHEN THERE ARE NO KICK FLAGS YET
+df_eligible = df.loc[(df['EligibilityScrub'] == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
 
-#ORIGINAL DF_ELIGIBLE DF
-#df_eligible = df.loc[df['EligibilityScrub'] == ''][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
-#df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.Flag.isnull) & (df.Flag_pricing_kicks.isnull) & (df.Flag_dd_kicks.isnull) ][['CurrentPrincipalBalanceAmt','EligibilityScrub', 'Flag', 'Flag_pricing_kicks', 'Flag_dd_kicks', 'Flag_Allocation']]
-df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.Flag.isnull()) & (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) & (df.Flag.isnull())][['CurrentPrincipalBalanceAmt','EligibilityScrub','Flag','Flag_pricing_kicks','Flag_dd_kicks','Flag_Allocation']]
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#------------------------------------------------------------------------------------------------------------
 
 df.to_excel(ebo_eligibility_export_fileandpath) #index=False
 df.to_excel(ebo_eligibility_export_fileandpath_withTimeStamp) #index=False, export one with date
@@ -154,8 +164,9 @@ print('\n')
 print('Eligible 60+ Count (rows):',df.shape[0])
 print('Eligible 60+ Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
 print('Eligible not kicked count (rows):', df_eligible.shape[0])
-print('Eligible not kicked Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm')
-print('Eligible population exported to: \n',ebo_eligibility_export_fileandpath, '\n', 'and\n', ebo_eligibility_export_fileandpath_withTimeStamp)
+print('Eligible not kicked Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
+#print('Eligible Allocated the Mass Mutual (Total UPB and loan count): $'+str(round(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm, ' + str(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.count()) + ' loans' )
+print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath, '\n', 'and\n', ebo_eligibility_export_fileandpath_withTimeStamp)
 
 
 
