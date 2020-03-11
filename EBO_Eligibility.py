@@ -13,11 +13,12 @@ NOTES ON GOAL OF SCRIPT:
     
 USER REQUIREMENTS:
     + User must update loan number list in the 1) property value query and 2) Trendix query  
-    
+    + Note that 
     
 REVISION HISTORY:
     20200311:
         + PENDING - Adding placeholder kick columns for pre-dd phase of marketing process
+        + Note that this update there are errors thrown when there is only one loan in any kick file
     20200123:
         + Added to the dataframe the tracking of dd kicks, port strat kicks, pricing kicks from loan lists
             housed in the network drive
@@ -58,6 +59,48 @@ ebo_eligibility_export_path = r'M:\Capital Markets\GNMA EBO Project\Python'
 ebo_eligibility_export_filename = '\ebo_eligibility.xlsx' 
 #------------------------------------------------------------------------------------------------------------
 
+
+
+#define filename that includes timestap (for archiving)
+ebo_eligibility_export_filename_withTimeStamp = '\ebo_eligibility_' + time_string +  '.xlsx' 
+ebo_eligibility_export_fileandpath = ebo_eligibility_export_path + ebo_eligibility_export_filename
+ebo_eligibility_export_filename_loannums = '\ebo_eligibility_list.csv' 
+ebo_eligibility_export_fileandpath_loannums = ebo_eligibility_export_path + ebo_eligibility_export_filename_loannums
+ebo_eligibility_export_fileandpath_withTimeStamp = ebo_eligibility_export_path + ebo_eligibility_export_filename_withTimeStamp
+
+#############################################
+#RUN THE SQL QUERIES AND CREATE DATAFRAMES
+#############################################
+#Read the SQL query results into a pandas dataframe
+#define the opening of the filename and path of the sql file
+query = open(sql_fileandpath)
+
+
+#Read the sql file results into dataframes
+#Make sure any loan lists in the query are updated prior to running
+df = pd.read_sql_query(query.read(),sql_conn).set_index('LoanId')
+sql_conn.close()
+#print(df.shape[0])
+
+#############################################
+#ADD KICK COLUMNS TO DATAFRAME
+#############################################
+# df['FLAG_ALLOCATION'] = ''
+# df['FLAG_DD_KICKS'] = ''
+# df['FLAG_PCG_KICKS'] = ''
+# df['FLAG_PRICIING_KICKS'] = ''
+df['FLAG_PS_KICKS'] = ''
+
+#Port Strat
+#------------------------------------------------------------------------------------------------------------
+ps_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import' ##### r'M:\Capital Markets\GNMA EBO Project\Python'
+ps_kicklist_import_filename = '\PS_Kicks_20200401_settle.csv' 
+ps_kicklist_import_pathandfile = ps_kicklist_import_path + ps_kicklist_import_filename
+df_PS_kicks = pd.read_csv(ps_kicklist_import_pathandfile).set_index('LoanId')
+
+#update flag column to make sure it's populated
+df_PS_kicks['FLAG_PS_KICKS'] = 'PS_KICK'
+#------------------------------------------------------------------------------------------------------------
 """
 #??????????????????????????????????????????????????????????????????????????????????????
 #TEMPORARY COMMENTING OUT FOR KICK LISTS AND ALLOCATION LISTS
@@ -100,26 +143,20 @@ df_DD_kicks = pd.read_csv(dd_kicklist_import_pathandfile).set_index('LoanId')
 """
 
 
-#define filename that includes timestap (for archiving)
-ebo_eligibility_export_filename_withTimeStamp = '\ebo_eligibility_' + time_string +  '.xlsx' 
-ebo_eligibility_export_fileandpath = ebo_eligibility_export_path + ebo_eligibility_export_filename
-ebo_eligibility_export_filename_loannums = '\ebo_eligibility_list.csv' 
-ebo_eligibility_export_fileandpath_loannums = ebo_eligibility_export_path + ebo_eligibility_export_filename_loannums
-ebo_eligibility_export_fileandpath_withTimeStamp = ebo_eligibility_export_path + ebo_eligibility_export_filename_withTimeStamp
+
+
+#df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_PS_KICKS.isnull())][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_PS_KICKS']] #& (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ]
+
 
 #############################################
-#RUN THE SQL QUERIES AND CREATE DATAFRAMES
+#UPDATE
 #############################################
-#Read the SQL query results into a pandas dataframe
-#define the opening of the filename and path of the sql file
-query = open(sql_fileandpath)
+df.update(df_PS_kicks)
 
 
-#Read the sql file results into dataframes
-#Make sure any loan lists in the query are updated prior to running
-df = pd.read_sql_query(query.read(),sql_conn).set_index('LoanId')
-sql_conn.close()
 
+#TEMP COMMENT OUT
+#DELETE MERGE SECTION ONCE CLEANED UP (USING UPDATE METHOD NOW)
 """
 #??????????????????????????????????????????????????????????????????????????????????????
 #############################################
@@ -142,9 +179,17 @@ df = pd.merge(df, df_allocation, how='left', suffixes=('','_Allocation'), left_i
 #BELOW VERSION IS WHEN THERE ARE KICK FLAGS DEFINED
 #df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.Flag.isnull()) & (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ][['CurrentPrincipalBalanceAmt','EligibilityScrub','Flag','Flag_pricing_kicks','Flag_dd_kicks','Flag_Allocation']]
 
-#BELOW VERSION IS WHEN THERE ARE NO KICK FLAGS YET
-df_eligible = df.loc[(df['EligibilityScrub'] == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
 
+"""
+#??????????????????????????????????????????????????????????????????????????????????????
+#USE THIS FOR NOW INTRA MONTH
+#BELOW VERSION IS WHEN THERE ARE NO KICK FLAGS YET - USE THIS FOR NOW INTRA MONTH
+#df_eligible = df.loc[(df['EligibilityScrub'] == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""
+df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_PS_KICKS == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_PS_KICKS']] #& (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ]
+
+#df_eligible = df.loc[(df['EligibilityScrub'] == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
 #------------------------------------------------------------------------------------------------------------
 
 df.to_excel(ebo_eligibility_export_fileandpath) #index=False
@@ -161,13 +206,12 @@ print('DF Eligible (head):\n\n', df_eligible.head())
 
 #print some statistics to console for user color
 print('\n')
-print('Eligible 60+ Count (rows):',df.shape[0])
-print('Eligible 60+ Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
+print('Initial EBO Count (rows):',df.shape[0])
+print('Initial EBO Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
 print('Eligible not kicked count (rows):', df_eligible.shape[0])
 print('Eligible not kicked Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
 #print('Eligible Allocated the Mass Mutual (Total UPB and loan count): $'+str(round(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm, ' + str(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.count()) + ' loans' )
 print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath, '\n', 'and\n', ebo_eligibility_export_fileandpath_withTimeStamp)
-
 
 
 
@@ -177,6 +221,8 @@ print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath
 #junk leftover code
 
 #update FINAL_WATERFALL_VALUE with CUR_HOUSE_PRICE
+#df_final.loc[df_final['FINAL_WATERFALL_APPROACH'] == 'Pull Trendix', 'FINAL_WATERFALL_VALUE'] = df_final.CUR_HOUSE_PRICE
+#FOR REFERENCE
 #df_final.loc[df_final['FINAL_WATERFALL_APPROACH'] == 'Pull Trendix', 'FINAL_WATERFALL_VALUE'] = df_final.CUR_HOUSE_PRICE
 
 
@@ -199,3 +245,28 @@ print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath
 #example from ibm class
 #df_del_na.loc[df_del_na['Neighbourhood'] == "Not assigned", 'Neighbourhood'] = "Queen's Park"
 #df_del_na
+
+#TESTING ERRORS - DELETE FROM HERE DOWN ONCE CLEANED UP
+#df = pd.merge(df, df_PS_kicks, how='left', left_index=True, right_index=True)
+#or use concatenate
+#df = pd.concat([df, df_PS_kicks], axis=1, join='outer') #ValueError: Only can inner (intersect) or outer (union) join the other axis
+#print(df.loc[[df_PS_kicks.index]].head())  #KeyError: "None of [Index([(1004304742,)], dtype='object', name='LoanId')] are in the [index]"
+#print(df.columns)
+#print(df.shape[0])
+#print(df.iloc[[df.index==df_PS_kicks.index][:]].head()) #ValueError: Lengths must match to compare
+#ENCOURAGING...GOT DIFFERENT ERROR WHICH MEANS THIS WORKED
+#print(df.loc[[df_PS_kicks.index]].head()) #KeyError: "None of [Index([(1234567890,)], dtype='object', name='LoanId')] are in the [index]"
+#TEMP WORKING TO ADD DUMMY KICK LOANS, COLUMNS, MERGE AND ELIGIBILITY LIST
+#"""
+#??????????????????????????????????????????????????????????????????????????????????????
+#############################################
+#ADD PRICING, ALLOCATION, PORT STRAT, AND DD COLUMNS TO DF
+#############################################
+#merge dataframes of kick lists and allocation lists
+# df = pd.merge(df, df_PS_kicks, how='left', left_index=True, right_index=True)
+# df = pd.merge(df, df_pricing_kicks, how='left', suffixes=('','_pricing_kicks'), left_index=True, right_index=True)
+# df = pd.merge(df, df_DD_kicks, how='left', suffixes=('','_dd_kicks'), left_index=True, right_index=True)
+# df = pd.merge(df, df_allocation, how='left', suffixes=('','_Allocation'), left_index=True, right_index=True)
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#"""
