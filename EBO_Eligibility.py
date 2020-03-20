@@ -60,7 +60,6 @@ ebo_eligibility_export_filename = '\ebo_eligibility.xlsx'
 #------------------------------------------------------------------------------------------------------------
 
 
-
 #define filename that includes timestap (for archiving)
 ebo_eligibility_export_filename_withTimeStamp = '\ebo_eligibility_' + time_string +  '.xlsx' 
 ebo_eligibility_export_fileandpath = ebo_eligibility_export_path + ebo_eligibility_export_filename
@@ -85,15 +84,21 @@ sql_conn.close()
 #############################################
 #ADD KICK COLUMNS TO DATAFRAME
 #############################################
-# df['FLAG_ALLOCATION'] = ''
-# df['FLAG_DD_KICKS'] = ''
-# df['FLAG_PCG_KICKS'] = ''
-# df['FLAG_PRICIING_KICKS'] = ''
+df['FLAG_ALLOCATION'] = ''
+df['FLAG_DD_KICKS'] = ''
+df['FLAG_PCG_KICKS'] = ''
+df['FLAG_PRICING_KICKS'] = ''
 df['FLAG_PS_KICKS'] = ''
 
+
+#############################################
+#IMPORTS (KICK LISTS AND ALLOCATIONS) - Set path, filename for importing Pricing Kick List
+#   then import into df
+#############################################
+#------------------------------------------------------------------------------------------------------------
 #Port Strat
 #------------------------------------------------------------------------------------------------------------
-ps_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import' ##### r'M:\Capital Markets\GNMA EBO Project\Python'
+ps_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import'
 ps_kicklist_import_filename = '\PS_Kicks_20200401_settle.csv' 
 ps_kicklist_import_pathandfile = ps_kicklist_import_path + ps_kicklist_import_filename
 df_PS_kicks = pd.read_csv(ps_kicklist_import_pathandfile).set_index('LoanId')
@@ -101,100 +106,81 @@ df_PS_kicks = pd.read_csv(ps_kicklist_import_pathandfile).set_index('LoanId')
 #update flag column to make sure it's populated
 df_PS_kicks['FLAG_PS_KICKS'] = 'PS_KICK'
 #------------------------------------------------------------------------------------------------------------
-"""
-#??????????????????????????????????????????????????????????????????????????????????????
-#TEMPORARY COMMENTING OUT FOR KICK LISTS AND ALLOCATION LISTS
-#WORKING TO ADD SCRIPT THAT TRIES TO PULL FILES BUT GIVES EXCEPTION ERRORS IF DOESN'T EXIST OR FILES ARE EMPTY
-#
-
-#############################################
-#IMPORTS (KICK LISTS AND ALLOCATIONS) - Set path, filename for importing Pricing Kick List
-#   then import into df
-#############################################
-#Port Strat
-#------------------------------------------------------------------------------------------------------------
-ps_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\20200131 cutoff\Servicing Investments' # PROBABLY CHANGE THIS TO CENTRALIZED FOLDER (BUT IT RISKS NOT BEING UPDATED...COULD ADD FILENAME CHANGER TO END OF SCRIPT) ##### r'M:\Capital Markets\GNMA EBO Project\Python'
-ps_kicklist_import_filename = '\PS_Kicks.csv' 
-ps_kicklist_import_pathandfile = ps_kicklist_import_path + ps_kicklist_import_filename
-df_PS_kicks = pd.read_csv(ps_kicklist_import_pathandfile).set_index('LoanId')
-#------------------------------------------------------------------------------------------------------------
 #Allocation
 #------------------------------------------------------------------------------------------------------------
-allocation_import_path = r'M:\Capital Markets\GNMA EBO Project\20200131 cutoff\Servicing Investments' 
-allocation_import_filename = '\Allocation_20200302.csv' 
+allocation_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import'
+allocation_import_filename = '\Allocation_20200401_settle.csv' 
 allocation_import_pathandfile = allocation_import_path + allocation_import_filename
 df_allocation = pd.read_csv(allocation_import_pathandfile).set_index('LoanId')
 #------------------------------------------------------------------------------------------------------------
 #Pricing
 #------------------------------------------------------------------------------------------------------------
-pricing_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\20200131 cutoff\Servicing Investments' 
-pricing_kicklist_import_filename = '\Pricing_Kicks.csv' 
+pricing_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import'
+pricing_kicklist_import_filename = '\Pricing_Kicks_20200401_settle.csv' 
 pricing_kicklist_import_pathandfile = pricing_kicklist_import_path + pricing_kicklist_import_filename
 df_pricing_kicks = pd.read_csv(pricing_kicklist_import_pathandfile).set_index('LoanId')
+
+#update flag column to make sure it's populated
+df_pricing_kicks['FLAG_PRICING_KICKS'] = 'PRICING_KICK'
 #------------------------------------------------------------------------------------------------------------
 #DD Kicks
 #------------------------------------------------------------------------------------------------------------
-dd_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\20200131 cutoff\DD' 
-dd_kicklist_import_filename = '\DD_Kicks_20200302_settle.csv' 
+dd_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import'
+dd_kicklist_import_filename = '\DD_Kicks_20200401_settle.csv' 
 dd_kicklist_import_pathandfile = dd_kicklist_import_path + dd_kicklist_import_filename
 df_DD_kicks = pd.read_csv(dd_kicklist_import_pathandfile).set_index('LoanId')
+
+#update flag column to make sure it's populated
+df_DD_kicks['FLAG_DD_KICKS'] = 'DD_KICK'
 #------------------------------------------------------------------------------------------------------------
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-"""
+#PCG Kicks
+#------------------------------------------------------------------------------------------------------------
+pcg_kicklist_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import'
+pcg_kicklist_import_filename = '\PCG_Kicks_20200401_settle.csv' 
+pcg_kicklist_import_pathandfile = pcg_kicklist_import_path + pcg_kicklist_import_filename
+df_pcg_kicks = pd.read_csv(pcg_kicklist_import_pathandfile).set_index('LoanId')
 
-
-
-
-#df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_PS_KICKS.isnull())][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_PS_KICKS']] #& (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ]
+#update flag column to make sure it's populated
+df_pcg_kicks['FLAG_PCG_KICKS'] = 'PCG_KICK'
+#------------------------------------------------------------------------------------------------------------
 
 
 #############################################
-#UPDATE
+#UPDATE THE MAIN DATAFRAME WITH THE KICKS IN EACH CATEGORY
 #############################################
 df.update(df_PS_kicks)
+df.update(df_pricing_kicks)
+df.update(df_DD_kicks)
+df.update(df_pcg_kicks)
 
 
-
-#TEMP COMMENT OUT
-#DELETE MERGE SECTION ONCE CLEANED UP (USING UPDATE METHOD NOW)
-"""
-#??????????????????????????????????????????????????????????????????????????????????????
 #############################################
-#ADD PRICING, ALLOCATION, PORT STRAT, AND DD COLUMNS TO DF
+#FILTER FINAL LIST OF ELIGIBLE LOANS AFTER KICKS
 #############################################
-#merge dataframes of kick lists and allocation lists
-df = pd.merge(df, df_PS_kicks, how='left', suffixes=('','_PS'), left_index=True, right_index=True)
-df = pd.merge(df, df_pricing_kicks, how='left', suffixes=('','_pricing_kicks'), left_index=True, right_index=True)
-df = pd.merge(df, df_DD_kicks, how='left', suffixes=('','_dd_kicks'), left_index=True, right_index=True)
-df = pd.merge(df, df_allocation, how='left', suffixes=('','_Allocation'), left_index=True, right_index=True)
-
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-"""
+#------------------------------------------------------------------------------------------------------------
+#Filter out Port Strat kicks, due diligence kicks, PCG kicks, and pricing kicks
+#------------------------------------------------------------------------------------------------------------
+df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == '') & (df.FLAG_PCG_KICKS == '') & (df.FLAG_PRICING_KICKS == '') & (df.FLAG_PS_KICKS == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION']]
 
 
 #------------------------------------------------------------------------------------------------------------
 #Export list of eligible loans after filtering out Port Strat kicks, due diligence kicks, and pricing kicks
 #------------------------------------------------------------------------------------------------------------
-
-#BELOW VERSION IS WHEN THERE ARE KICK FLAGS DEFINED
-#df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.Flag.isnull()) & (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ][['CurrentPrincipalBalanceAmt','EligibilityScrub','Flag','Flag_pricing_kicks','Flag_dd_kicks','Flag_Allocation']]
-
-
-"""
-#??????????????????????????????????????????????????????????????????????????????????????
-#USE THIS FOR NOW INTRA MONTH
-#BELOW VERSION IS WHEN THERE ARE NO KICK FLAGS YET - USE THIS FOR NOW INTRA MONTH
-#df_eligible = df.loc[(df['EligibilityScrub'] == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-"""
-df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_PS_KICKS == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_PS_KICKS']] #& (df.Flag_pricing_kicks.isnull()) & (df.Flag_dd_kicks.isnull()) ]
-
-#df_eligible = df.loc[(df['EligibilityScrub'] == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub']]
-#------------------------------------------------------------------------------------------------------------
-
 df.to_excel(ebo_eligibility_export_fileandpath) #index=False
 df.to_excel(ebo_eligibility_export_fileandpath_withTimeStamp) #index=False, export one with date
 df_eligible.to_csv(ebo_eligibility_export_fileandpath_loannums) #index=False #, columns=['CurrentPrincipalBalanceAmt','EligibilityScrub']
+
+#############################################
+#GET THE COUNTS OF EACH KICK...OR JUST CREATE A PIVOT...NEXT PART OF PROJECT
+#############################################
+#------------------------------------------------------------------------------------------------------------
+#Count of DD, Port Strat, Pricing and PCG Repurchase Kicks
+#------------------------------------------------------------------------------------------------------------
+count_dd_kicks = df.loc[df['FLAG_DD_KICKS'].isin(['DD_KICK'])]['FLAG_DD_KICKS'].count() 
+count_ps_kicks = df.loc[df['FLAG_PS_KICKS'].isin(['PS_KICK'])]['FLAG_DD_KICKS'].count() 
+count_pricing_kicks = df.loc[df['FLAG_PRICING_KICKS'].isin(['PRICING_KICK'])]['FLAG_PRICING_KICKS'].count() 
+count_pcg_kicks = df.loc[df['FLAG_PCG_KICKS'].isin(['PCG_KICK'])]['FLAG_PCG_KICKS'].count() 
+#------------------------------------------------------------------------------------------------------------
 
 #result_time2 = time.localtime()
 #time_diff = time.asctime(result_time2) - time.asctime(result_time)
@@ -208,20 +194,23 @@ print('DF Eligible (head):\n\n', df_eligible.head())
 print('\n')
 print('Initial EBO Count (rows):',df.shape[0])
 print('Initial EBO Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
-print('Eligible not kicked count (rows):', df_eligible.shape[0])
-print('Eligible not kicked Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
+print('Remaining (after kicks) count (rows):', df_eligible.shape[0])
+print('Remaining (after kicks) Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
+print('Kicks:')
+print('     Due Diligence: {}'.format(count_dd_kicks))
+print('     Port Strat: {}'.format(count_ps_kicks)) #FLAG_PS_KICKS
+print('     Pricing: {}'.format(count_pricing_kicks))
+print('     PCG Repurchases: {}'.format(count_pcg_kicks))
 #print('Eligible Allocated the Mass Mutual (Total UPB and loan count): $'+str(round(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm, ' + str(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.count()) + ' loans' )
 print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath, '\n', 'and\n', ebo_eligibility_export_fileandpath_withTimeStamp)
 
 
-
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #MAYBE ADD TO STEP THAT ADDS THE TRENDIX CSV TO THE FINAL OUTPUT
 
 #------------------------------------------------------------------------------------------------------------
 #junk leftover code
 
-#update FINAL_WATERFALL_VALUE with CUR_HOUSE_PRICE
-#df_final.loc[df_final['FINAL_WATERFALL_APPROACH'] == 'Pull Trendix', 'FINAL_WATERFALL_VALUE'] = df_final.CUR_HOUSE_PRICE
 #FOR REFERENCE
 #df_final.loc[df_final['FINAL_WATERFALL_APPROACH'] == 'Pull Trendix', 'FINAL_WATERFALL_VALUE'] = df_final.CUR_HOUSE_PRICE
 
@@ -244,29 +233,3 @@ print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath
 
 #example from ibm class
 #df_del_na.loc[df_del_na['Neighbourhood'] == "Not assigned", 'Neighbourhood'] = "Queen's Park"
-#df_del_na
-
-#TESTING ERRORS - DELETE FROM HERE DOWN ONCE CLEANED UP
-#df = pd.merge(df, df_PS_kicks, how='left', left_index=True, right_index=True)
-#or use concatenate
-#df = pd.concat([df, df_PS_kicks], axis=1, join='outer') #ValueError: Only can inner (intersect) or outer (union) join the other axis
-#print(df.loc[[df_PS_kicks.index]].head())  #KeyError: "None of [Index([(1004304742,)], dtype='object', name='LoanId')] are in the [index]"
-#print(df.columns)
-#print(df.shape[0])
-#print(df.iloc[[df.index==df_PS_kicks.index][:]].head()) #ValueError: Lengths must match to compare
-#ENCOURAGING...GOT DIFFERENT ERROR WHICH MEANS THIS WORKED
-#print(df.loc[[df_PS_kicks.index]].head()) #KeyError: "None of [Index([(1234567890,)], dtype='object', name='LoanId')] are in the [index]"
-#TEMP WORKING TO ADD DUMMY KICK LOANS, COLUMNS, MERGE AND ELIGIBILITY LIST
-#"""
-#??????????????????????????????????????????????????????????????????????????????????????
-#############################################
-#ADD PRICING, ALLOCATION, PORT STRAT, AND DD COLUMNS TO DF
-#############################################
-#merge dataframes of kick lists and allocation lists
-# df = pd.merge(df, df_PS_kicks, how='left', left_index=True, right_index=True)
-# df = pd.merge(df, df_pricing_kicks, how='left', suffixes=('','_pricing_kicks'), left_index=True, right_index=True)
-# df = pd.merge(df, df_DD_kicks, how='left', suffixes=('','_dd_kicks'), left_index=True, right_index=True)
-# df = pd.merge(df, df_allocation, how='left', suffixes=('','_Allocation'), left_index=True, right_index=True)
-
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#"""
