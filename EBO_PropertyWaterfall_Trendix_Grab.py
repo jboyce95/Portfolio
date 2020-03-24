@@ -31,7 +31,7 @@ import pyodbc
 import time
 
 #clock starts to time how long the df import takes
-start_tm = time.clock()
+#start_tm = time.clock()
 
 #############################################
 #SETTINGS - SQL CONNECTIONS, SQL QUERY FILENAMES AND SQL PATHS
@@ -83,7 +83,7 @@ df_final_export_fileandpath = df_final_export_path + df_final_export_filename
 #SETTINGS - Set file paths (for xlsx/csv import)
 #############################################
 loan_list_path = r'M:\Capital Markets\GNMA EBO Project\Python' 
-loan_list_filename = '\ebo_eligibility_list.csv'  #ADDED 1, 2 DUE TO LARGE SCRIPT SIZING #CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
+loan_list_filename = '\ebo_eligibility_list_v1.csv'  #ADDED 1, 2 DUE TO LARGE SCRIPT SIZING #CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
 loan_list_fileandpath = loan_list_path + loan_list_filename
 
 
@@ -470,8 +470,8 @@ print('\n')
 print('Trendix csv exported to: \n',trendix_path_in, '\n')
 
 #countdown while waiting for Trendix output...could probably refactor script to watch for output file posting to folder 
-for i in range(5):
-    print(str(5-i))
+for i in range(30):
+    print(str(30-i))
     time.sleep(1)    
 
 print('\n')
@@ -519,10 +519,10 @@ df_final.to_excel(df_final_export_fileandpath) #,index=False
 df_trendix_out.to_csv(trendix_export_fileandpath) #,index=False
 
 print("\n")
-print("Import Time (Using Time): " + str(round((time.clock()-start_tm),2)) +  " seconds...\n")
+#print("Import Time (Using Time): " + str(round((time.clock()-start_tm),2)) +  " seconds...\n")
 print('\nSee the following path for xlsx versions of the dataframes: \n \n')
 print(df_final_export_path, '\n \nAll Done!\n')
-print("Process time (Using Process Time): " + str(time.process_time) + " seconds...\n")
+#print("Process time (Using Process Time): " + str(time.process_time) + " seconds...\n")
 
 
 #------------------------------------------------------------------------------------------------------------
