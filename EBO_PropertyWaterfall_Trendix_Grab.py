@@ -16,6 +16,9 @@ USER REQUIREMENTS:
     
     
 REVISION HISTORY:
+    20200323:
+        + Script results sometimes had different rows between Trendix and final waterfall output (Trendix>)
+        + Added append function to add Trendix entries not included in the final waterfall output
     20191213 to 20191213
     20191206:
         + Discovered issue with df_final and df_trendix_out not merging properly
@@ -32,6 +35,15 @@ import time
 
 #clock starts to time how long the df import takes
 #start_tm = time.clock()
+
+
+#############################################
+#START THE TIMER TO SEE HOW LONG PROCESS TAKES
+#############################################
+result_time = time.localtime()
+time_string = time.strftime("%Y%m%d", result_time)
+t = time.process_time()
+
 
 #############################################
 #SETTINGS - SQL CONNECTIONS, SQL QUERY FILENAMES AND SQL PATHS
@@ -449,9 +461,6 @@ where LM.LoanId in (%s)
 df = pd.read_sql_query(query,sql_conn).set_index('LoanNumber') #changed query.read() to just query #, chunksize=1000,index_col='LoanNumber') #.set_index('LoanNumber'))
 
 
-
-#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 #NOTE ON DF INDEX BELOW
 #changing df index dtype to int not needed...keeping it as object to match trendix index dtype...too many issues with int for loannumber
 
@@ -509,9 +518,41 @@ df_final.loc[df_final['FINAL_WATERFALL_APPROACH'] == 'Pull Trendix', 'FINAL_WATE
 
 #MAYBE ADD TO STEP THAT ADDS THE TRENDIX CSV TO THE FINAL OUTPUT
 
-print('\n', 'Trendix Output df (five rows): \n', df_trendix_out.head()) #also printed out above...consider labeling the printout
+#############################################
+#APPEND TRENDIX DF VALUES TO DF_FINAL
+#############################################
+
+#------------------------------------------------------------------------------------------------------------
+#CREATE TEMP TRENDIX DF FOR APPEND
+#------------------------------------------------------------------------------------------------------------
+df_trendix_append = df_trendix_out[['CUR_HOUSE_PRICE']]
+df_trendix_append.index.astype(np.str)
+df_trendix_append = df_trendix_append[~df_trendix_append.index.isin(df_final.index)] #subset of trendix not in df_final
+df_trendix_append['FINAL_WATERFALL_APPROACH'] = 'Pull Trendix'
+df_trendix_append['FINAL_WATERFALL_VALUE'] = df_trendix_append.CUR_HOUSE_PRICE
+df_trendix_append.rename(index={df_trendix_append.index.name: df_final.index.name})
+# df3 = pd.concat([df1,df2_append.rename(columns={'Cur_House_Px':'waterfall'})], ignore_index=False, sort=False)
+# df3 = pd.concat([df1,df2_append.rename(columns={'Cur_House_Px':'waterfall'})], ignore_index=False, sort=False)
+# df_trendix_out
+
+#------------------------------------------------------------------------------------------------------------
+#APPEND TRENDIX DF TO DF_FINAL
+#------------------------------------------------------------------------------------------------------------
+#df_final.append(df_trendix_append, ignore_index=False, sort=False)
+df_final = pd.concat([df_final,df_trendix_append], ignore_index=False, sort=False)
+df_final.index.name = 'LoanNumber' #this fixes the xlsx export not having a column nmae for loan number
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+print('df_trendix_append', df_trendix_append.head())
+print('\n', 'df_trendix_append # of rows: \n', df_trendix_append.shape[0]) 
+print('\n', 'df_final # of rows: \n', df_final.shape[0]) 
+print('\n', 'Trendix # of rows: \n', df_trendix_out.shape[0]) 
+print('\n', 'Trendix Output df (five rows): \n', df_trendix_out.head()) 
 print('\n', 'df_final (five rows): \n', df_final.head())
 print('\n', 'df_final property values (five rows): \n', df_final[['FINAL_WATERFALL_VALUE','CUR_HOUSE_PRICE']].head())
+
+#PRINT NUMBER OF APPENDED ROWS
+#print("Import Time (Using Time): " + str(round((time.clock()-start_tm),2)) +  " seconds...\n")
 
 #------------------------------------------------------------------------------------------------------------
 #Export df after updating Trendix value
@@ -519,11 +560,14 @@ df_final.to_excel(df_final_export_fileandpath) #,index=False
 df_trendix_out.to_csv(trendix_export_fileandpath) #,index=False
 
 print("\n")
-#print("Import Time (Using Time): " + str(round((time.clock()-start_tm),2)) +  " seconds...\n")
 print('\nSee the following path for xlsx versions of the dataframes: \n \n')
 print(df_final_export_path, '\n \nAll Done!\n')
-#print("Process time (Using Process Time): " + str(time.process_time) + " seconds...\n")
 
+#############################################
+#REPORT HOW LONG THE PROCESS TAKES
+#############################################
+elapsed_time = round((time.process_time() - t),1)
+print("Runtime was: ", elapsed_time, " seconds\n") #add seconds formatting on to-do list
 
 #------------------------------------------------------------------------------------------------------------
 #junk leftover code
