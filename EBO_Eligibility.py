@@ -16,13 +16,24 @@ USER REQUIREMENTS:
     + Note that 
     
 REVISION HISTORY:
+    20200320:
+        + PENDING - Adding reference to starting population (column, etc.) for marketing process
+            ++ "ValueError: cannot reindex from a duplicate axis" caused by duplicate loannumbers
+            ++ utf-8 unicode error caused by extra spaces at the end of loan numbers
     20200311:
-        + PENDING - Adding placeholder kick columns for pre-dd phase of marketing process
+        + COMPLETED Adding placeholder kick columns for pre-dd phase of marketing process
         + Note that this update there are errors thrown when there is only one loan in any kick file
     20200123:
         + Added to the dataframe the tracking of dd kicks, port strat kicks, pricing kicks from loan lists
             housed in the network drive
         + Updated eligiblity script to integrate VA Refi and NA Housing queries
+
+##############################################
+NOTES TO USER - IMPORTANT:
+    + UPDATE FILENAMES FOR LOAN LEVELS
+##############################################
+
+FIX DF_ELIGIBLE EXPORT WHEN STARTING POP NOT IDENTIFIED YET (ALL = 0, NO 1s)
 """
 
 import pandas as pd
@@ -66,6 +77,9 @@ ebo_eligibility_export_fileandpath = ebo_eligibility_export_path + ebo_eligibili
 ebo_eligibility_export_filename_loannums = '\ebo_eligibility_list.csv' 
 ebo_eligibility_export_fileandpath_loannums = ebo_eligibility_export_path + ebo_eligibility_export_filename_loannums
 ebo_eligibility_export_fileandpath_withTimeStamp = ebo_eligibility_export_path + ebo_eligibility_export_filename_withTimeStamp
+ebo_eligibility_export_filename_loannums_withTimeStamp = '\ebo_eligibility_list_' + time_string +  '.csv' 
+ebo_eligibility_export_fileandpath_loannums_withTimeStamp = ebo_eligibility_export_path + ebo_eligibility_export_filename_loannums_withTimeStamp
+
 
 #############################################
 #RUN THE SQL QUERIES AND CREATE DATAFRAMES
@@ -82,13 +96,14 @@ sql_conn.close()
 #print(df.shape[0])
 
 #############################################
-#ADD KICK COLUMNS TO DATAFRAME
+#ADD KICK AND ALLOCATION COLUMNS TO DATAFRAME
 #############################################
 df['FLAG_ALLOCATION'] = ''
 df['FLAG_DD_KICKS'] = ''
 df['FLAG_PCG_KICKS'] = ''
 df['FLAG_PRICING_KICKS'] = ''
 df['FLAG_PS_KICKS'] = ''
+df['FLAG_STARTING_POP'] = 0
 
 
 #############################################
@@ -143,6 +158,16 @@ df_pcg_kicks = pd.read_csv(pcg_kicklist_import_pathandfile).set_index('LoanId')
 #update flag column to make sure it's populated
 df_pcg_kicks['FLAG_PCG_KICKS'] = 'PCG_KICK'
 #------------------------------------------------------------------------------------------------------------
+#Starting pop - This is the starting population that will roll down from here (no new loans added)
+#------------------------------------------------------------------------------------------------------------
+starting_pop_import_path = r'M:\Capital Markets\GNMA EBO Project\Python\Import'
+starting_pop_import_filename = '\Starting_Pop_20200401_settle.csv' 
+starting_pop_import_pathandfile = starting_pop_import_path + starting_pop_import_filename
+df_starting_pop = pd.read_csv(starting_pop_import_pathandfile).set_index('LoanId')
+
+#update flag column to make sure it's populated
+df_starting_pop['FLAG_STARTING_POP'] = 1
+#------------------------------------------------------------------------------------------------------------
 
 
 #############################################
@@ -152,7 +177,8 @@ df.update(df_PS_kicks)
 df.update(df_pricing_kicks)
 df.update(df_DD_kicks)
 df.update(df_pcg_kicks)
-
+df.update(df_starting_pop)
+#STILL NEED TO ADD UPDATES FOR ALLOCATION
 
 #############################################
 #FILTER FINAL LIST OF ELIGIBLE LOANS AFTER KICKS
@@ -160,8 +186,8 @@ df.update(df_pcg_kicks)
 #------------------------------------------------------------------------------------------------------------
 #Filter out Port Strat kicks, due diligence kicks, PCG kicks, and pricing kicks
 #------------------------------------------------------------------------------------------------------------
-df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == '') & (df.FLAG_PCG_KICKS == '') & (df.FLAG_PRICING_KICKS == '') & (df.FLAG_PS_KICKS == '')][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION']]
-
+df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == '') & (df.FLAG_PCG_KICKS == '') & (df.FLAG_PRICING_KICKS == '') & (df.FLAG_PS_KICKS == '') & (df.FLAG_STARTING_POP == 1)][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP']]
+#FLAG_STARTING_POP
 
 #------------------------------------------------------------------------------------------------------------
 #Export list of eligible loans after filtering out Port Strat kicks, due diligence kicks, and pricing kicks
@@ -169,6 +195,8 @@ df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == '') &
 df.to_excel(ebo_eligibility_export_fileandpath) #index=False
 df.to_excel(ebo_eligibility_export_fileandpath_withTimeStamp) #index=False, export one with date
 df_eligible.to_csv(ebo_eligibility_export_fileandpath_loannums) #index=False #, columns=['CurrentPrincipalBalanceAmt','EligibilityScrub']
+df_eligible.to_csv(ebo_eligibility_export_fileandpath_loannums_withTimeStamp) #index=False #, columns=['CurrentPrincipalBalanceAmt','EligibilityScrub']
+#ebo_eligibility_export_fileandpath_loannums_withTimeStamp 
 
 #############################################
 #GET THE COUNTS OF EACH KICK...OR JUST CREATE A PIVOT...NEXT PART OF PROJECT
@@ -196,13 +224,13 @@ print('Initial EBO Count (rows):',df.shape[0])
 print('Initial EBO Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
 print('Remaining (after kicks) count (rows):', df_eligible.shape[0])
 print('Remaining (after kicks) Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
-print('Kicks:')
-print('     Due Diligence: {}'.format(count_dd_kicks))
-print('     Port Strat: {}'.format(count_ps_kicks)) #FLAG_PS_KICKS
-print('     Pricing: {}'.format(count_pricing_kicks))
-print('     PCG Repurchases: {}'.format(count_pcg_kicks))
+print('Kicks (not mutually exclusive):')
+print('\tDue Diligence: {}'.format(count_dd_kicks))
+print('\tPort Strat: {}'.format(count_ps_kicks)) #FLAG_PS_KICKS
+print('\tPricing: {}'.format(count_pricing_kicks))
+print('\tPCG Repurchases: {}'.format(count_pcg_kicks))
 #print('Eligible Allocated the Mass Mutual (Total UPB and loan count): $'+str(round(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm, ' + str(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.count()) + ' loans' )
-print('\nEligible population exported to: \n',ebo_eligibility_export_fileandpath, '\n', 'and\n', ebo_eligibility_export_fileandpath_withTimeStamp)
+print('\nEligible population exported to: \n\t',ebo_eligibility_export_fileandpath, '\n\t', ebo_eligibility_export_fileandpath_withTimeStamp)
 
 
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
