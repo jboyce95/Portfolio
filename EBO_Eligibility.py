@@ -98,11 +98,11 @@ sql_conn.close()
 #############################################
 #ADD KICK AND ALLOCATION COLUMNS TO DATAFRAME
 #############################################
-df['FLAG_ALLOCATION'] = ''
-df['FLAG_DD_KICKS'] = ''
-df['FLAG_PCG_KICKS'] = ''
-df['FLAG_PRICING_KICKS'] = ''
-df['FLAG_PS_KICKS'] = ''
+df['FLAG_ALLOCATION'] = 0
+df['FLAG_DD_KICKS'] = 0
+df['FLAG_PCG_KICKS'] = 0
+df['FLAG_PRICING_KICKS'] = 0
+df['FLAG_PS_KICKS'] = 0
 df['FLAG_STARTING_POP'] = 0
 
 
@@ -119,7 +119,7 @@ ps_kicklist_import_pathandfile = ps_kicklist_import_path + ps_kicklist_import_fi
 df_PS_kicks = pd.read_csv(ps_kicklist_import_pathandfile).set_index('LoanId')
 
 #update flag column to make sure it's populated
-df_PS_kicks['FLAG_PS_KICKS'] = 'PS_KICK'
+df_PS_kicks['FLAG_PS_KICKS'] = 1 # 'PS_KICK'
 #------------------------------------------------------------------------------------------------------------
 #Allocation
 #------------------------------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ pricing_kicklist_import_pathandfile = pricing_kicklist_import_path + pricing_kic
 df_pricing_kicks = pd.read_csv(pricing_kicklist_import_pathandfile).set_index('LoanId')
 
 #update flag column to make sure it's populated
-df_pricing_kicks['FLAG_PRICING_KICKS'] = 'PRICING_KICK'
+df_pricing_kicks['FLAG_PRICING_KICKS'] = 1 # 'PRICING_KICK'
 #------------------------------------------------------------------------------------------------------------
 #DD Kicks
 #------------------------------------------------------------------------------------------------------------
@@ -146,7 +146,7 @@ dd_kicklist_import_pathandfile = dd_kicklist_import_path + dd_kicklist_import_fi
 df_DD_kicks = pd.read_csv(dd_kicklist_import_pathandfile).set_index('LoanId')
 
 #update flag column to make sure it's populated
-df_DD_kicks['FLAG_DD_KICKS'] = 'DD_KICK'
+df_DD_kicks['FLAG_DD_KICKS'] = 1 # 'DD_KICK'
 #------------------------------------------------------------------------------------------------------------
 #PCG Kicks
 #------------------------------------------------------------------------------------------------------------
@@ -156,7 +156,7 @@ pcg_kicklist_import_pathandfile = pcg_kicklist_import_path + pcg_kicklist_import
 df_pcg_kicks = pd.read_csv(pcg_kicklist_import_pathandfile).set_index('LoanId')
 
 #update flag column to make sure it's populated
-df_pcg_kicks['FLAG_PCG_KICKS'] = 'PCG_KICK'
+df_pcg_kicks['FLAG_PCG_KICKS'] = 1 # 'PCG_KICK'
 #------------------------------------------------------------------------------------------------------------
 #Starting pop - This is the starting population that will roll down from here (no new loans added)
 #------------------------------------------------------------------------------------------------------------
@@ -186,7 +186,16 @@ df.update(df_starting_pop)
 #------------------------------------------------------------------------------------------------------------
 #Filter out Port Strat kicks, due diligence kicks, PCG kicks, and pricing kicks
 #------------------------------------------------------------------------------------------------------------
-df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == '') & (df.FLAG_PCG_KICKS == '') & (df.FLAG_PRICING_KICKS == '') & (df.FLAG_PS_KICKS == '') & (df.FLAG_STARTING_POP == 1)][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP']]
+
+if df.FLAG_STARTING_POP.sum() >=100:
+    df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == 0) & (df.FLAG_PCG_KICKS == 0) & (df.FLAG_PRICING_KICKS == 0) & (df.FLAG_PS_KICKS == 0) & (df.FLAG_STARTING_POP == 1)][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP']]
+else:
+    df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == 0) & (df.FLAG_PCG_KICKS == 0) & (df.FLAG_PRICING_KICKS == 0) & (df.FLAG_PS_KICKS == 0)][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP']]
+    
+
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 #FLAG_STARTING_POP
 
 #------------------------------------------------------------------------------------------------------------
@@ -220,17 +229,24 @@ print('DF Eligible (head):\n\n', df_eligible.head())
 
 #print some statistics to console for user color
 print('\n')
-print('Initial EBO Count (rows):',df.shape[0])
-print('Initial EBO Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
-print('Remaining (after kicks) count (rows):', df_eligible.shape[0])
-print('Remaining (after kicks) Total UPB: $'+str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
+print(f'Initial EBO Count (rows): {df.shape[0]:,.0f}') # ,df.shape[0])
+print(f'Initial EBO Total UPB: ${(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1)):,.1f}mm')
+print(f'Remaining (after kicks) count (rows): {df_eligible.shape[0]:,.0f}') #, df_eligible.shape[0]'
+print(f'Remaining (after kicks) Total UPB: ${(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000,1)):,.1f}mm\n')
 print('Kicks (not mutually exclusive):')
-print('\tDue Diligence: {}'.format(count_dd_kicks))
-print('\tPort Strat: {}'.format(count_ps_kicks)) #FLAG_PS_KICKS
-print('\tPricing: {}'.format(count_pricing_kicks))
-print('\tPCG Repurchases: {}'.format(count_pcg_kicks))
+print(f'\tDue Diligence: {count_dd_kicks:,.0f}') #.format(count_dd_kicks))
+print(f'\tPort Strat: {count_ps_kicks:,.0f}') #.format(count_ps_kicks)) #FLAG_PS_KICKS
+print(f'\tPricing: {count_pricing_kicks:,.0f}') #.format(count_pricing_kicks))
+print(f'\tPCG Repurchases: {count_pcg_kicks:,.0f}') #.format(count_pcg_kicks))
 #print('Eligible Allocated the Mass Mutual (Total UPB and loan count): $'+str(round(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm, ' + str(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.count()) + ' loans' )
 print('\nEligible population exported to: \n\t',ebo_eligibility_export_fileandpath, '\n\t', ebo_eligibility_export_fileandpath_withTimeStamp)
+
+
+# f'{height:,.1f}'
+# print(f'Remaining (after kicks) Total UPB: ${(round(x_test/100,1)):,.1f}mm\n')
+# print(f'Initial EBO Count (rows): {count:,.0f}') # ,df.shape[0])
+#print('Initial EBO Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
+## +str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
 
 
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
