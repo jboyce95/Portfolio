@@ -11,11 +11,9 @@ NOTES ON GOAL OF SCRIPT:
     + pause x seconds
     + import Trendix output from \\pnmac.com\cfs\Finance\Trendix\LoanPerformanceOut
     
-USER REQUIREMENTS:
-    + User must update loan number list in the 1) property value query and 2) Trendix query  
-    + Note that 
-    
 REVISION HISTORY:
+    20200527:
+        + Added days360 calculation and accrued interest calculation
     20200320:
         + PENDING - Adding reference to starting population (column, etc.) for marketing process
             ++ "ValueError: cannot reindex from a duplicate axis" caused by duplicate loannumbers
@@ -29,8 +27,13 @@ REVISION HISTORY:
         + Updated eligiblity script to integrate VA Refi and NA Housing queries
 
 ##############################################
-NOTES TO USER - IMPORTANT:
+USER REQUIREMENTS: NOTES TO USER - IMPORTANT:
     + UPDATE FILENAMES FOR LOAN LEVELS
+    + UPDATE SETTLE DATE (WILL ADD AUTO CALC DOWN THE ROAD)
+    + 
+
+    
+
 ##############################################
 
 FIX DF_ELIGIBLE EXPORT WHEN STARTING POP NOT IDENTIFIED YET (ALL = 0, NO 1s)
@@ -40,6 +43,9 @@ import pandas as pd
 import numpy as np
 import pyodbc
 import time
+from days360 import days360Calc
+from datetime import date #f for any date 
+import calendar # for days360 function
 
 #clock starts to time how long the df import takes
 #start_tm = time.clock()
@@ -48,7 +54,23 @@ time_string = time.strftime("%Y%m%d", result_time)
 t = time.process_time()
 
 #############################################
-#SETTINGS - SQL CONNECTIONS, SQL QUERY FILENAMES AND SQL PATHS
+# SETTINGS - TRADE TARGETS AND DETAILS
+#############################################
+
+settle_date = date(2020, 8, 3)
+#add settle date calc 
+#if YYYYMM01 not in (weekend or US Bank Holiday), then  YYYYMM01  
+#elseif  YYYYMM02 not in (weekend or US Bank Holiday), then YYYYMM02
+#elseif  YYYYMM03 not in (weekend or US Bank Holiday), then YYYYMM03
+#else  YYYYMM04
+
+mm_trade_size = 2e6
+pbo_trade_size = 135e6
+
+
+
+#############################################
+# SETTINGS - SQL CONNECTIONS, SQL QUERY FILENAMES AND SQL PATHS
 #############################################
 #set file location of sql query we want to import
 sql_path = r'M:\Capital Markets\GNMA EBO Project\SQL Queries' #CHANGE THIS AFTER FINALIZED
@@ -93,6 +115,11 @@ query = open(sql_fileandpath)
 #Make sure any loan lists in the query are updated prior to running
 df = pd.read_sql_query(query.read(),sql_conn).set_index('LoanId')
 sql_conn.close()
+
+# Set field to datetime for future use of time fields in days360 calculations
+df['InterestPaidToDt'] = pd.to_datetime(df['InterestPaidToDt'])
+df['SETTLE_DATE'] = settle_date
+
 #print(df.shape[0])
 
 #############################################
@@ -104,7 +131,9 @@ df['FLAG_PCG_KICKS'] = 0
 df['FLAG_PRICING_KICKS'] = 0
 df['FLAG_PS_KICKS'] = 0
 df['FLAG_STARTING_POP'] = 0
-
+df['FLAG_ELIGIBILITY_FINAL'] = 0 # FOR USE LATER DURING ALLOCATION OPTIMIZATION
+df['FINAL_WATERFALL_VALUE'] = 0
+df['FLAG_COVID'] = 0
 
 #############################################
 #IMPORTS (KICK LISTS AND ALLOCATIONS) - Set path, filename for importing Pricing Kick List
@@ -181,6 +210,40 @@ df.update(df_starting_pop)
 #STILL NEED TO ADD UPDATES FOR ALLOCATION
 
 #############################################
+# CALCULATE THE ACCRUED INTEREST FOR THE TRADES
+#############################################
+
+# Calculate the accrued interest using hte days360 function (make sure it's saved to the project folder)
+df['DAYS360_DAYS'] = df.apply(lambda row: days360Calc(row['InterestPaidToDt'], settle_date), axis=1)
+
+df['ACCRUED_INTEREST'] = df['DAYS360_DAYS'] * df['CurrentPrincipalBalanceAmt'] * df['PT at Buyout'] / 360
+
+
+#############################################
+# IMPORT THE PROPERTY VALUE FROM WATERFALL
+#############################################
+
+def grab_property_value():
+    import_path = r'M:\Capital Markets\GNMA EBO Project\Python'
+    import_filename = 'df_waterfall_final.xlsx'
+    import_path_and_filename = import_path + '\\' + import_filename
+    columns = ['LoanNumber','FINAL_WATERFALL_VALUE','FINAL_WATERFALL_APPROACH']
+    df_PV = pd.read_excel(import_path_and_filename, usecols=columns).set_index('LoanNumber')
+    
+    return df_PV
+
+df.update(grab_property_value())
+
+
+#############################################
+# ADD COVID FLAG TO QUERY IMPORT THE PROPERTY VALUE
+#############################################
+
+
+
+
+
+#############################################
 #FILTER FINAL LIST OF ELIGIBLE LOANS AFTER KICKS
 #############################################
 #------------------------------------------------------------------------------------------------------------
@@ -188,9 +251,10 @@ df.update(df_starting_pop)
 #------------------------------------------------------------------------------------------------------------
 
 if df.FLAG_STARTING_POP.sum() >=100:
-    df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == 0) & (df.FLAG_PCG_KICKS == 0) & (df.FLAG_PRICING_KICKS == 0) & (df.FLAG_PS_KICKS == 0) & (df.FLAG_STARTING_POP == 1)][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP']]
+    df['FLAG_ELIGIBILITY_FINAL'] = 1
+    df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == 0) & (df.FLAG_PCG_KICKS == 0) & (df.FLAG_PRICING_KICKS == 0) & (df.FLAG_PS_KICKS == 0) & (df.FLAG_COVID == 0) & (df.FLAG_STARTING_POP == 1)][['CurrentPrincipalBalanceAmt','FINAL_WATERFALL_VALUE','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP','FLAG_COVID','FLAG_ELIGIBILITY_FINAL']]
 else:
-    df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == 0) & (df.FLAG_PCG_KICKS == 0) & (df.FLAG_PRICING_KICKS == 0) & (df.FLAG_PS_KICKS == 0)][['CurrentPrincipalBalanceAmt','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP']]
+    df_eligible = df.loc[(df['EligibilityScrub'] == '') & (df.FLAG_DD_KICKS == 0) & (df.FLAG_PCG_KICKS == 0) & (df.FLAG_PRICING_KICKS == 0) & (df.FLAG_PS_KICKS == 0) & (df.FLAG_COVID == 0) ][['CurrentPrincipalBalanceAmt','FINAL_WATERFALL_VALUE','EligibilityScrub','FLAG_DD_KICKS','FLAG_PCG_KICKS','FLAG_PRICING_KICKS','FLAG_PS_KICKS','FLAG_ALLOCATION','FLAG_STARTING_POP','FLAG_ELIGIBILITY_FINAL','FLAG_COVID']]
     
 
 
@@ -213,10 +277,12 @@ df_eligible.to_csv(ebo_eligibility_export_fileandpath_loannums_withTimeStamp) #i
 #------------------------------------------------------------------------------------------------------------
 #Count of DD, Port Strat, Pricing and PCG Repurchase Kicks
 #------------------------------------------------------------------------------------------------------------
-count_dd_kicks = df.loc[df['FLAG_DD_KICKS'].isin(['DD_KICK'])]['FLAG_DD_KICKS'].count() 
-count_ps_kicks = df.loc[df['FLAG_PS_KICKS'].isin(['PS_KICK'])]['FLAG_DD_KICKS'].count() 
-count_pricing_kicks = df.loc[df['FLAG_PRICING_KICKS'].isin(['PRICING_KICK'])]['FLAG_PRICING_KICKS'].count() 
-count_pcg_kicks = df.loc[df['FLAG_PCG_KICKS'].isin(['PCG_KICK'])]['FLAG_PCG_KICKS'].count() 
+
+#NEED TO CHANGE THIS TO == 1
+count_dd_kicks = df.loc[df['FLAG_DD_KICKS'] == 1]['FLAG_DD_KICKS'].count()  #.isin(['DD_KICK'])]['FLAG_DD_KICKS'].count() 
+count_ps_kicks = df.loc[df['FLAG_PS_KICKS'] == 1]['FLAG_DD_KICKS'].count() #.isin(['PS_KICK'])]['FLAG_DD_KICKS'].count() 
+count_pricing_kicks = df.loc[df['FLAG_PRICING_KICKS'] == 1]['FLAG_PRICING_KICKS'].count() #.isin(['PRICING_KICK'])]['FLAG_PRICING_KICKS'].count() 
+count_pcg_kicks = df.loc[df['FLAG_PCG_KICKS'] == 1]['FLAG_PCG_KICKS'].count()  #.isin(['PCG_KICK'])]['FLAG_PCG_KICKS'].count() 
 #------------------------------------------------------------------------------------------------------------
 
 #result_time2 = time.localtime()
@@ -241,12 +307,6 @@ print(f'\tPCG Repurchases: {count_pcg_kicks:,.0f}') #.format(count_pcg_kicks))
 #print('Eligible Allocated the Mass Mutual (Total UPB and loan count): $'+str(round(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm, ' + str(df_eligible.loc[df_eligible.Flag_Allocation == 'Mass Mutual'].CurrentPrincipalBalanceAmt.count()) + ' loans' )
 print('\nEligible population exported to: \n\t',ebo_eligibility_export_fileandpath, '\n\t', ebo_eligibility_export_fileandpath_withTimeStamp)
 
-
-# f'{height:,.1f}'
-# print(f'Remaining (after kicks) Total UPB: ${(round(x_test/100,1)):,.1f}mm\n')
-# print(f'Initial EBO Count (rows): {count:,.0f}') # ,df.shape[0])
-#print('Initial EBO Total UPB: $'+str(round(df.CurrentPrincipalBalanceAmt.sum()/1000000,1))+'mm')
-## +str(round(df_eligible.CurrentPrincipalBalanceAmt.sum()/1000000, 1))+'mm\n')
 
 
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
