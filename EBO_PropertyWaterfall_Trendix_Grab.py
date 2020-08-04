@@ -32,6 +32,9 @@ import pandas as pd
 import numpy as np
 import pyodbc
 import time
+import math
+import os
+
 
 #clock starts to time how long the df import takes
 #start_tm = time.clock()
@@ -86,16 +89,20 @@ df_export_filename = '\df_waterfall_orig.xlsx' #CONSIDER ADDING WATERFALL FOLDER
 df_export_fileandpath = df_export_path + df_export_filename
 
 #df export info (AFTER df updates)
+#CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
 df_final_export_path = r'M:\Capital Markets\GNMA EBO Project\Python'
-df_final_export_filename = '\df_waterfall_final.xlsx' #CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
+df_final_export_filename = '\df_waterfall_final.xlsx' 
 df_final_export_fileandpath = df_final_export_path + df_final_export_filename
+df_final_export_filename_withTimeStamp = '\df_waterfall_final_' + time_string + '.xlsx'
+df_final_export_fileandpath_withTimeStamp = df_final_export_path + df_final_export_filename_withTimeStamp
 
 
 #############################################
 #SETTINGS - Set file paths (for xlsx/csv import)
 #############################################
 loan_list_path = r'M:\Capital Markets\GNMA EBO Project\Python' 
-loan_list_filename = '\ebo_eligibility_list_v1.csv'  #ADDED 1, 2 DUE TO LARGE SCRIPT SIZING #CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
+loan_list_filename = '\ebo_eligibility_list.csv'  #ADDED 1, 2 DUE TO LARGE SCRIPT SIZING #CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
+#loan_list_filename = '\EBO_LOAN_LIST.csv'  #ADDED 1, 2 DUE TO LARGE SCRIPT SIZING #CONSIDER ADDING WATERFALL FOLDER FOR OUTPUT
 loan_list_fileandpath = loan_list_path + loan_list_filename
 
 
@@ -137,6 +144,7 @@ for i in range(len(my_list)):
 #define the opening of the filename and path of the sql file
 #query = open(sql_fileandpath) #when referencing SQL file (not text)
 #query_trendix = open(sql_fileandpath_trendix) #when referencing SQL file (not text)
+        
 query = """
 --This section automatically calculates the MEPeriod for the end of the previous month
 Declare @MEPeriod INT
@@ -479,8 +487,8 @@ print('\n')
 print('Trendix csv exported to: \n',trendix_path_in, '\n')
 
 #countdown while waiting for Trendix output...could probably refactor script to watch for output file posting to folder 
-for i in range(30):
-    print(str(30-i))
+for i in range(60):
+    print(str(60-i))
     time.sleep(1)    
 
 print('\n')
@@ -551,17 +559,18 @@ print('\n', 'Trendix Output df (five rows): \n', df_trendix_out.head())
 print('\n', 'df_final (five rows): \n', df_final.head())
 print('\n', 'df_final property values (five rows): \n', df_final[['FINAL_WATERFALL_VALUE','CUR_HOUSE_PRICE']].head())
 
-#PRINT NUMBER OF APPENDED ROWS
-#print("Import Time (Using Time): " + str(round((time.clock()-start_tm),2)) +  " seconds...\n")
 
 #------------------------------------------------------------------------------------------------------------
 #Export df after updating Trendix value
+#------------------------------------------------------------------------------------------------------------
 df_final.to_excel(df_final_export_fileandpath) #,index=False
+df_final.to_excel(df_final_export_fileandpath_withTimeStamp) #,index=False
 df_trendix_out.to_csv(trendix_export_fileandpath) #,index=False
+#------------------------------------------------------------------------------------------------------------
 
 print("\n")
-print('\nSee the following path for xlsx versions of the dataframes: \n \n')
-print(df_final_export_path, '\n \nAll Done!\n')
+print('\nSee the following path for xlsx versions of the dataframes:\n\t',df_final_export_path)
+print('\n \nAll Done!\n')
 
 #############################################
 #REPORT HOW LONG THE PROCESS TAKES
